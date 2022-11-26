@@ -11,15 +11,24 @@ import os
 import random
 from glob import glob
 import os.path as osp
+from pathlib import Path
+import regex
 
+
+# import the utils path
+import sys
+sys.path.append('/home/jiaan/Code/unimatch/')
 from utils import frame_utils
+from utils.path_utils import sorted_file_paths
 from dataloader.flow.transforms import FlowAugmentor, SparseFlowAugmentor
+
+os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 
 
 class FlowDataset(data.Dataset):
     def __init__(self, aug_params=None, sparse=False,
                  load_occlusion=False,
-                 vkitti2=False,
+                 sparse_dataset=None,
                  ):
         self.augmentor = None
         self.sparse = sparse
@@ -35,7 +44,7 @@ class FlowDataset(data.Dataset):
         self.flow_list = []
         self.image_list = []
         self.extra_info = []
-        self.vkitti2 = vkitti2
+        self.sparse_dataset = sparse_dataset
 
         self.load_occlusion = load_occlusion
         self.occ_list = []
@@ -70,10 +79,12 @@ class FlowDataset(data.Dataset):
         valid = None
 
         if self.sparse:
-            if self.vkitti2:
+            if self.sparse_dataset == 'vkitti2':
                 flow, valid = frame_utils.read_vkitti2_flow(self.flow_list[index])
-            else:
+            elif self.sparse_dataset == 'kitti':
                 flow, valid = frame_utils.readFlowKITTI(self.flow_list[index])  # [H, W, 2], [H, W]
+            elif self.sparse_dataset == 'scannet':
+                flow, valid = frame_utils.readFlowScanNet(self.flow_list[index])   # [H, W, 2], [H, W]
         else:
             flow = frame_utils.read_gen(self.flow_list[index])
 
@@ -140,7 +151,7 @@ class FlowDataset(data.Dataset):
 
 class MpiSintel(FlowDataset):
     def __init__(self, aug_params=None, split='training',
-                 root='datasets/Sintel',
+                 root='/data/optical_flow/Sintel',
                  dstype='clean',
                  load_occlusion=False,
                  ):
@@ -172,7 +183,7 @@ class MpiSintel(FlowDataset):
 
 class FlyingChairs(FlowDataset):
     def __init__(self, aug_params=None, split='train',
-                 root='datasets/FlyingChairs_release/data',
+                 root='/data/optical_flow/FlyingChairs',
                  ):
         super(FlyingChairs, self).__init__(aug_params)
 
@@ -191,7 +202,7 @@ class FlyingChairs(FlowDataset):
 
 class FlyingThings3D(FlowDataset):
     def __init__(self, aug_params=None,
-                 root='datasets/FlyingThings3D',
+                 root='/data/optical_flow/FlyingThings3D',
                  dstype='frames_cleanpass',
                  test_set=False,
                  validate_subset=True,
@@ -243,7 +254,7 @@ class VKITTI2(FlowDataset):
     def __init__(self, aug_params=None,
                  root='datasets/VKITTI2',
                  ):
-        super(VKITTI2, self).__init__(aug_params, sparse=True, vkitti2=True,
+        super(VKITTI2, self).__init__(aug_params, sparse=True, sparse_dataset='vkitti2',
                                       )
 
         data_dir = root
@@ -277,9 +288,9 @@ class VKITTI2(FlowDataset):
 
 class KITTI(FlowDataset):
     def __init__(self, aug_params=None, split='training',
-                 root='datasets/KITTI',
+                 root='/data/optical_flow/KittiFlow',
                  ):
-        super(KITTI, self).__init__(aug_params, sparse=True,
+        super(KITTI, self).__init__(aug_params, sparse=True, sparse_dataset='kitti'
                                     )
         if split == 'testing':
             self.is_test = True
@@ -300,7 +311,7 @@ class KITTI(FlowDataset):
 class KITTI12(FlowDataset):
     def __init__(self, aug_params=None, split='training',
                  root='datasets/KITTI12'):
-        super(KITTI12, self).__init__(aug_params, sparse=True)
+        super(KITTI12, self).__init__(aug_params, sparse=True, sparse_dataset='kitti')
         if split == 'testing':
             self.is_test = True
 
@@ -318,7 +329,7 @@ class KITTI12(FlowDataset):
 
 
 class HD1K(FlowDataset):
-    def __init__(self, aug_params=None, root='datasets/HD1K'):
+    def __init__(self, aug_params=None, root='/data/optical_flow/hd1k'):
         super(HD1K, self).__init__(aug_params, sparse=True)
 
         seq_ix = 0
@@ -334,6 +345,38 @@ class HD1K(FlowDataset):
                 self.image_list += [[images[i], images[i + 1]]]
 
             seq_ix += 1
+
+
+
+class ScanNet(FlowDataset):
+    def __init__(self, aug_params=None, split='training',
+                 root='/data/optical_flow/scannetv2_flow', scenes='all', step=10):
+        super(ScanNet, self).__init__(aug_params, sparse=True, sparse_dataset='scannet')
+        
+        root = Path(root)
+        if split == 'testing':
+            self.is_test = True
+        scans_dir = (root / "scans") if split == "training" else (root / "scans_test")
+        
+        if scenes == "all":
+            scene_folders = sorted(glob(str(scans_dir / ("scene*"))))
+        else:
+            scene_folders = sorted(glob(str(scans_dir / ("scene*"))))[:scenes]
+
+        for scene_folder in scene_folders:
+            scene_flow_paths = sorted_file_paths((Path(scene_folder) / "flow_with_mask" / f"step_{step}"), "*.exr", "\d+(?=_\d+.exr)", to_str=True)
+            self.flow_list += scene_flow_paths
+            for scene_flow_path in scene_flow_paths:
+                i = regex.search("(?<=flow_)\d+(?=_\d+.exr)", str(scene_flow_path)).group(0)
+                j = regex.search("(?<=flow_\d+_)\d+(?=.exr)", str(scene_flow_path)).group(0)
+                self.image_list += [[str(Path(scene_folder) / "color" / f"{i}.jpg"), str(Path(scene_folder) / "color" / f"{j}.jpg")]]
+                #     frame_id = os.path.basename(img1)
+                #     self.extra_info += [[frame_id]]
+                
+    # def __getitem__(self, index):
+    #     # call super 
+    #     img1, img2, flow, mask = super().__getitem__(index)
+            
 
 
 def build_train_dataset(args):
@@ -399,8 +442,41 @@ def build_train_dataset(args):
         kitti12 = KITTI12(aug_params, split='training')
 
         train_dataset = 2 * kitti15 + kitti12
+        
+    elif args.stage == 'scannet':
+        aug_params = {'crop_size': args.image_size, 'min_scale': -0.2, 'max_scale': 0.4, 'do_flip': False}
+
+        train_dataset = ScanNet(aug_params, split='training', scenes=args.scannet_scenes, step=10)
 
     else:
         raise ValueError(f'stage {args.stage} is not supported')
 
     return train_dataset
+
+
+# # main function to test the ScanNet dataset
+# if __name__ == "__main__":
+#     import argparse
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument('--stage', type=str, default='scannet')
+#     parser.add_argument('--scannet_scenes', type=int, default=10)
+#     # add param image_size of [480, 640]
+#     parser.add_argument('--image_size', type=int, nargs=2, default=[480, 640])
+#     args = parser.parse_args()
+#     train_dataset = build_train_dataset(args)
+#     print(len(train_dataset))
+#     # Create data loader for the train_dataset
+#     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=1, pin_memory=True)
+#     # Iterate over the train_loader
+#     for img1, img2, flow, valid in train_loader:
+#         print(img1.shape, img2.shape, flow.shape, valid.shape)
+#         # save img1, img2, and flow as images
+#         import cv2
+#         cv2.imwrite('img1.png', img1[0].permute(1, 2, 0).numpy())
+#         cv2.imwrite('img2.png', img2[0].permute(1, 2, 0).numpy())
+#         # import flow_to_image
+#         from utils.flow_viz import flow_to_image
+#         # convert flow to color image and save
+#         flow_img = flow_to_image(flow[0].permute(1, 2, 0).numpy())
+#         cv2.imwrite('flow.png', flow_img)
+#         break

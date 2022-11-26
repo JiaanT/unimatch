@@ -18,6 +18,7 @@ from evaluate_flow import (validate_chairs, validate_things, validate_sintel, va
 from utils.logger import Logger
 from utils import misc
 from utils.dist_utils import get_dist_info, init_dist, setup_for_distributed
+import datetime, time
 
 
 def get_args_parser():
@@ -130,6 +131,9 @@ def get_args_parser():
                         help='measure the inference time')
 
     parser.add_argument('--debug', action='store_true')
+    
+    # ScanNet
+    parser.add_argument('--scannet_scenes', default='all', type=str)
 
     return parser
 
@@ -409,6 +413,7 @@ def main(args):
     total_steps = start_step
     epoch = start_epoch
     print('Start training')
+    start_time = time.time()
 
     while total_steps < args.num_steps:
         model.train()
@@ -418,6 +423,10 @@ def main(args):
             train_sampler.set_epoch(epoch)
 
         for i, sample in enumerate(train_loader):
+            # print estimated time
+            if total_steps % 100 == 0:
+                print(f'Estimated time: {datetime.timedelta(seconds=(args.num_steps - total_steps) * (time.time() - start_time) / 100)}')
+                start_time = time.time()
             img1, img2, flow_gt, valid = [x.to(device) for x in sample]
 
             results_dict = model(img1, img2,

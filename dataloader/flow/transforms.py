@@ -269,8 +269,21 @@ class SparseFlowAugmentor:
         flow = flow[y0:y0 + self.crop_size[0], x0:x0 + self.crop_size[1]]
         valid = valid[y0:y0 + self.crop_size[0], x0:x0 + self.crop_size[1]]
         return img1, img2, flow, valid
+    
+    # define a function to resize the image to the size of the flow
+    def resize_image(self, img1, img2, flow):
+        ht, wd = flow.shape[:2]
+        img1 = cv2.resize(img1, (wd, ht), interpolation=cv2.INTER_LINEAR)
+        img2 = cv2.resize(img2, (wd, ht), interpolation=cv2.INTER_LINEAR)
+        return img1, img2
+        
 
     def __call__(self, img1, img2, flow, valid):
+        
+        # if size of img1 and img2 not match the size of flow, resize the image
+        if img1.shape[:2] != flow.shape[:2]:
+            img1, img2 = self.resize_image(img1, img2, flow)
+        
         img1, img2 = self.color_transform(img1, img2)
         img1, img2 = self.eraser_transform(img1, img2)
 

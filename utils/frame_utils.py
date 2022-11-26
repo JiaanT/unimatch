@@ -134,7 +134,7 @@ def read_gen(file_name, pil=False):
         if len(flow.shape) == 2:
             return flow
         else:
-            return flow[:, :, :-1]
+            return flow[:, :, :-1]     
     return []
 
 
@@ -156,3 +156,13 @@ def read_vkitti2_flow(filename):
     valid = (np.logical_or(invalid, ~invalid)).astype(np.float32)
 
     return out_flow, valid
+
+
+
+def readFlowScanNet(filename):
+    flow_and_valid = cv2.imread(filename, -1)
+    # switch the 3 channels in the flow_and_valid array at the 3rd dimension, and keep the 1st and 2nd dimension
+    
+    flow_and_valid = cv2.cvtColor(flow_and_valid, cv2.COLOR_RGB2BGR)
+    flow, valid = flow_and_valid[:,:,:2], flow_and_valid[:,:,2]
+    return flow, valid

@@ -1,7 +1,7 @@
 import torch
 
 from utils.flow_viz import flow_tensor_to_image
-from .visualization import viz_depth_tensor_from_monodepth2
+# from .visualization import viz_depth_tensor_from_monodepth2
 
 
 class Logger:
