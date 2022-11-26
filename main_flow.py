@@ -524,6 +524,7 @@ def main(args):
                         val_results.update(results_dict)
 
                 if 'sintel' in args.val_dataset:
+                    print('validate Sintel')
                     results_dict = validate_sintel(model_without_ddp,
                                                    padding_factor=args.padding_factor,
                                                    with_speed_metric=args.with_speed_metric,
@@ -538,6 +539,7 @@ def main(args):
                         val_results.update(results_dict)
 
                 if 'kitti' in args.val_dataset:
+                    print('validate kitti')
                     results_dict = validate_kitti(model_without_ddp,
                                                   padding_factor=args.padding_factor,
                                                   with_speed_metric=args.with_speed_metric,

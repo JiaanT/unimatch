@@ -6,6 +6,10 @@
 # number of gpus for training, please set according to your hardware
 # can be trained on 8x 32G V100 or 8x 40GB A100 gpus
 NUM_GPUS=4
+NUM_NODES=2
+NODE_RANK=0
+MASTER_ADDR="10.71.106.252"
+
 
 # # chairs, resume from scale2 model
 # CHECKPOINT_DIR=checkpoints_flow/chairs-gmflow-scale2-regrefine6 && \
@@ -63,7 +67,7 @@ NUM_GPUS=4
 # scannet, resume from things model
 CHECKPOINT_DIR=checkpoints_flow/scannet-gmflow-scale2-regrefine6 && \
 mkdir -p ${CHECKPOINT_DIR} && \
-python -m torch.distributed.launch --nproc_per_node=${NUM_GPUS} --master_port=9989 main_flow.py \
+python -m torch.distributed.launch --nproc_per_node=${NUM_GPUS} --nnodes=${NUM_NODES} --node_rank=${NODE_RANK} --master_addr=${MASTER_ADDR} --master_port=9989 main_flow.py \
 --launcher pytorch \
 --checkpoint_dir ${CHECKPOINT_DIR} \
 --resume pretrained/gmflow-scale2-things-36579974.pth \
@@ -81,8 +85,8 @@ python -m torch.distributed.launch --nproc_per_node=${NUM_GPUS} --master_port=99
 --reg_refine \
 --num_reg_refine 6 \
 --with_speed_metric \
---val_freq 20000 \
---save_ckpt_freq 20000 \
+--val_freq 5000 \
+--save_ckpt_freq 5000 \
 --num_steps 200000 \
 --scannet_scenes "all" \
 --debug \
