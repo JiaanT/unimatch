@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 
+export CUDA_DEVICE_ORDER="PCI_BUS_ID"
+export CUDA_VISIBLE_DEVICES=0,1,2,3
+export NCCL_SOCKET_IFNAME="eno1"
+export NCCL_DEBUG="INFO"
+
 # GMFlow with hierarchical matching refinement (1/8 + 1/4 features)
 # with additional 6 local regression refinements
 
 # number of gpus for training, please set according to your hardware
 # can be trained on 8x 32G V100 or 8x 40GB A100 gpus
 NUM_GPUS=4
-NUM_NODES=2
-NODE_RANK=0
-MASTER_ADDR="10.71.106.252"
+NUM_NODES=3
+NODE_RANK=1
+MASTER_ADDR="10.71.106.253"
 
 
 # # chairs, resume from scale2 model
